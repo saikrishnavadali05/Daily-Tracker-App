@@ -36,7 +36,7 @@ Clean and organized CSV format
 
 ### 1️⃣ Clone the repository
 ```bash
-git clone https://github.com/<your-username>/Daily-Tracker-App.git
+git clone https://github.com/<https://github.com/pranitha0110/Daily-Tracker-App.git>/Daily-Tracker-App.git
 ````
 
 ### 2️⃣ Navigate into the folder
