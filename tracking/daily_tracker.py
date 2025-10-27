@@ -10,7 +10,7 @@ FILE_NAME = "daily_tracking.csv"
 def initialize_csv():
     """Ensure CSV file exists with correct columns."""
     if not os.path.exists(FILE_NAME):
-        df = pd.DataFrame(columns=["Date", "Login Time", "Logout Time", "Topics"])
+        df = pd.DataFrame(columns=["Date", "Day", "Login Time", "Logout Time", "Topics"])
         df.to_csv(FILE_NAME, index=False)
 
 def load_data():
@@ -25,15 +25,32 @@ def load_data():
     else:
         initialize_csv()
 
-def save_data(action):
-    """Save login/logout data."""
-    date = date_entry.get().strip()
-    time = time_entry.get().strip()
-    topic = topic_entry.get().strip()
+def update_datetime_fields():
+    """Update date, time, and day display fields."""
+    now = datetime.now()
+    date_entry.config(state="normal")
+    time_entry.config(state="normal")
+    day_entry.config(state="normal")
 
-    if not date or not time:
-        messagebox.showerror("Error", "Please fill all required fields.")
-        return
+    date_entry.delete(0, tk.END)
+    time_entry.delete(0, tk.END)
+    day_entry.delete(0, tk.END)
+
+    date_entry.insert(0, now.strftime("%Y-%m-%d"))
+    time_entry.insert(0, now.strftime("%H:%M"))
+    day_entry.insert(0, now.strftime("%A"))
+
+    date_entry.config(state="readonly")
+    time_entry.config(state="readonly")
+    day_entry.config(state="readonly")
+
+def save_data(action):
+    """Save login/logout data automatically with current date, time, and day."""
+    now = datetime.now()
+    date = now.strftime("%Y-%m-%d")
+    day = now.strftime("%A")
+    current_time = now.strftime("%H:%M")
+    topic = topic_entry.get().strip()
 
     df = pd.read_csv(FILE_NAME)
 
@@ -41,31 +58,30 @@ def save_data(action):
         if not topic:
             messagebox.showerror("Error", "Please enter the topic before login.")
             return
-        new_entry = pd.DataFrame([[date, time, "", topic]],
-                                 columns=["Date", "Login Time", "Logout Time", "Topics"])
+        new_entry = pd.DataFrame([[date, day, current_time, "", topic]],
+                                 columns=["Date", "Day", "Login Time", "Logout Time", "Topics"])
         df = pd.concat([df, new_entry], ignore_index=True)
         df.to_csv(FILE_NAME, index=False)
-        messagebox.showinfo("Success", "Login data saved successfully!")
+        messagebox.showinfo("Success", f"Login recorded at {current_time} on {day}")
         topic_entry.delete(0, tk.END)
 
     elif action == "Logout":
         mask = (df["Date"] == date) & ((df["Logout Time"].isna()) | (df["Logout Time"] == ""))
         if mask.any():
-            df.loc[mask.idxmax(), "Logout Time"] = time
+            df.loc[mask.idxmax(), "Logout Time"] = current_time
             df.to_csv(FILE_NAME, index=False)
-            messagebox.showinfo("Success", "Logout time updated successfully!")
+            messagebox.showinfo("Success", f"Logout recorded at {current_time} on {day}")
         else:
             messagebox.showwarning("Warning", "No active login found for today. Please login first.")
 
-    # Refresh table
+    # Refresh table and update time display
     load_data()
-    time_entry.delete(0, tk.END)
-    time_entry.insert(0, datetime.now().strftime("%H:%M"))
+    update_datetime_fields()
 
 # ---------------- UI SETUP ----------------
 root = tk.Tk()
 root.title("📘 Daily Tracker")
-root.geometry("650x500")
+root.geometry("700x520")
 root.config(bg="#f5f6fa")
 
 # Header
@@ -83,18 +99,21 @@ frame.pack(pady=15)
 tk.Label(frame, text="📅 Date:", font=("Arial", 10, "bold"), bg="#f5f6fa").grid(row=0, column=0, padx=10, pady=5, sticky="e")
 date_entry = tk.Entry(frame, width=25, font=("Arial", 10))
 date_entry.grid(row=0, column=1, pady=5)
-date_entry.insert(0, datetime.now().strftime("%Y-%m-%d"))
+
+# Day
+tk.Label(frame, text="🗓️ Day:", font=("Arial", 10, "bold"), bg="#f5f6fa").grid(row=1, column=0, padx=10, pady=5, sticky="e")
+day_entry = tk.Entry(frame, width=25, font=("Arial", 10))
+day_entry.grid(row=1, column=1, pady=5)
 
 # Time
-tk.Label(frame, text="⏰ Time:", font=("Arial", 10, "bold"), bg="#f5f6fa").grid(row=1, column=0, padx=10, pady=5, sticky="e")
+tk.Label(frame, text="⏰ Current Time:", font=("Arial", 10, "bold"), bg="#f5f6fa").grid(row=2, column=0, padx=10, pady=5, sticky="e")
 time_entry = tk.Entry(frame, width=25, font=("Arial", 10))
-time_entry.grid(row=1, column=1, pady=5)
-time_entry.insert(0, datetime.now().strftime("%H:%M"))
+time_entry.grid(row=2, column=1, pady=5)
 
 # Topic
-tk.Label(frame, text="🧠 Topics:", font=("Arial", 10, "bold"), bg="#f5f6fa").grid(row=2, column=0, padx=10, pady=5, sticky="e")
+tk.Label(frame, text="🧠 Topics:", font=("Arial", 10, "bold"), bg="#f5f6fa").grid(row=3, column=0, padx=10, pady=5, sticky="e")
 topic_entry = tk.Entry(frame, width=25, font=("Arial", 10))
-topic_entry.grid(row=2, column=1, pady=5)
+topic_entry.grid(row=3, column=1, pady=5)
 
 # Buttons frame
 btn_frame = tk.Frame(root, bg="#f5f6fa")
@@ -125,7 +144,7 @@ refresh_button.grid(row=0, column=2, padx=10)
 table_frame = tk.Frame(root, bg="#f5f6fa")
 table_frame.pack(pady=10, fill="both", expand=True)
 
-columns = ("Date", "Login Time", "Logout Time", "Topics")
+columns = ("Date", "Day", "Login Time", "Logout Time", "Topics")
 tree = ttk.Treeview(table_frame, columns=columns, show="headings", height=10)
 tree.pack(side="left", fill="both", expand=True)
 
@@ -149,4 +168,5 @@ footer.pack(side="bottom", fill="x")
 # ---------------- RUN APP ----------------
 initialize_csv()
 load_data()
+update_datetime_fields()
 root.mainloop()
