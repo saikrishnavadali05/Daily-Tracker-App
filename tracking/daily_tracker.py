@@ -1,172 +1,194 @@
 import tkinter as tk
-from tkinter import ttk, messagebox
+from tkinter import ttk, messagebox, simpledialog
 import pandas as pd
 from datetime import datetime
 import os
 
-FILE_NAME = "daily_tracking.csv"
+FILE_NAME = "daily_schedule_tracking.csv"
 
-# ---------------- FUNCTIONS ----------------
+# ------------------ Schedule Data ------------------
+SCHEDULE = [
+    ("5:00 AM", "Music / Devotional Songs Begin"),
+    ("5:30 AM – 6:00 AM", "Omkaram & Suprabhatam"),
+    ("6:00 AM – 6:20 AM", "Fitness Session"),
+    ("7:10 AM – 7:30 AM", "Breakfast Counter Open"),
+    ("9:00 AM", "College Begins (with Prayer)"),
+    ("3:45 PM", "College Ends"),
+    ("4:00 PM", "Return to Hostel"),
+    ("4:00 PM – 4:30 PM", "Relaxation & Evening Snacks"),
+    ("5:00 PM", "Start to Kulwant Hall"),
+    ("5:15 PM", "Bhajans at Sai Kulwant Hall"),
+    ("7:10 PM – 7:30 PM", "Dinner Counter Open"),
+    ("8:00 PM – 9:45 PM", "Study Hours"),
+    ("10:20 PM – 10:30 PM", "Night Prayer & Swami’s Discourse Clip"),
+]
+
+# ------------------ Functions ------------------
 def initialize_csv():
-    """Ensure CSV file exists with correct columns."""
+    """Create the CSV file if not present."""
     if not os.path.exists(FILE_NAME):
-        df = pd.DataFrame(columns=["Date", "Day", "Login Time", "Logout Time", "Topics"])
+        df = pd.DataFrame(columns=["Date", "Day", "Scheduled Time", "Activity", "Login Time", "Logout Time", "Remarks"])
         df.to_csv(FILE_NAME, index=False)
 
 def load_data():
-    """Load and display CSV data in the Treeview."""
+    """Load data into the table view."""
     for row in tree.get_children():
         tree.delete(row)
-
     if os.path.exists(FILE_NAME):
         df = pd.read_csv(FILE_NAME)
         for _, row in df.iterrows():
             tree.insert("", "end", values=list(row))
-    else:
-        initialize_csv()
 
-def update_datetime_fields():
-    """Update date, time, and day display fields."""
-    now = datetime.now()
-    date_entry.config(state="normal")
-    time_entry.config(state="normal")
-    day_entry.config(state="normal")
-
-    date_entry.delete(0, tk.END)
-    time_entry.delete(0, tk.END)
-    day_entry.delete(0, tk.END)
-
-    date_entry.insert(0, now.strftime("%Y-%m-%d"))
-    time_entry.insert(0, now.strftime("%H:%M"))
-    day_entry.insert(0, now.strftime("%A"))
-
-    date_entry.config(state="readonly")
-    time_entry.config(state="readonly")
-    day_entry.config(state="readonly")
-
-def save_data(action):
-    """Save login/logout data automatically with current date, time, and day."""
+def record_action(activity, sched_time, action_type):
+    """Record login or logout for the given activity."""
     now = datetime.now()
     date = now.strftime("%Y-%m-%d")
     day = now.strftime("%A")
     current_time = now.strftime("%H:%M")
-    topic = topic_entry.get().strip()
 
     df = pd.read_csv(FILE_NAME)
 
-    if action == "Login":
-        if not topic:
-            messagebox.showerror("Error", "Please enter the topic before login.")
-            return
-        new_entry = pd.DataFrame([[date, day, current_time, "", topic]],
-                                 columns=["Date", "Day", "Login Time", "Logout Time", "Topics"])
-        df = pd.concat([df, new_entry], ignore_index=True)
-        df.to_csv(FILE_NAME, index=False)
-        messagebox.showinfo("Success", f"Login recorded at {current_time} on {day}")
-        topic_entry.delete(0, tk.END)
+    # Check if an entry for this activity already exists today
+    mask = (df["Date"] == date) & (df["Activity"] == activity)
 
-    elif action == "Logout":
-        mask = (df["Date"] == date) & ((df["Logout Time"].isna()) | (df["Logout Time"] == ""))
+    if action_type == "Login":
         if mask.any():
-            df.loc[mask.idxmax(), "Logout Time"] = current_time
-            df.to_csv(FILE_NAME, index=False)
-            messagebox.showinfo("Success", f"Logout recorded at {current_time} on {day}")
+            messagebox.showinfo("Info", f"Login already recorded for '{activity}'.")
+            return
+        new_row = pd.DataFrame([[date, day, sched_time, activity, current_time, "", ""]],
+                               columns=["Date", "Day", "Scheduled Time", "Activity", "Login Time", "Logout Time", "Remarks"])
+        df = pd.concat([df, new_row], ignore_index=True)
+        df.to_csv(FILE_NAME, index=False)
+        messagebox.showinfo("Success", f"✅ Login recorded for '{activity}' at {current_time}")
+
+    elif action_type == "Logout":
+        if mask.any():
+            idx = df.index[mask][0]
+            if pd.isna(df.at[idx, "Logout Time"]) or df.at[idx, "Logout Time"] == "":
+                df.at[idx, "Logout Time"] = current_time
+                df.to_csv(FILE_NAME, index=False)
+                messagebox.showinfo("Success", f"✅ Logout recorded for '{activity}' at {current_time}")
+            else:
+                messagebox.showinfo("Info", f"Logout already recorded for '{activity}'.")
         else:
-            messagebox.showwarning("Warning", "No active login found for today. Please login first.")
+            messagebox.showwarning("Warning", f"No login found for '{activity}' today.")
 
-    # Refresh table and update time display
     load_data()
-    update_datetime_fields()
 
-# ---------------- UI SETUP ----------------
+def add_remarks():
+    """Add remarks for selected activity in the table."""
+    selected_item = tree.focus()
+    if not selected_item:
+        messagebox.showwarning("Warning", "Please select an activity from the table.")
+        return
+
+    values = tree.item(selected_item, "values")
+    date, activity = values[0], values[3]
+
+    remark = simpledialog.askstring("Add Remarks", f"Enter your remark for '{activity}':")
+    if remark is None or remark.strip() == "":
+        return
+
+    df = pd.read_csv(FILE_NAME)
+    mask = (df["Date"] == date) & (df["Activity"] == activity)
+
+    if mask.any():
+        idx = df.index[mask][0]
+        df.at[idx, "Remarks"] = remark
+        df.to_csv(FILE_NAME, index=False)
+        load_data()
+        messagebox.showinfo("Success", f"📝 Remark added for '{activity}'.")
+    else:
+        messagebox.showwarning("Warning", "No record found for this activity.")
+
+# ------------------ UI ------------------
 root = tk.Tk()
-root.title("📘 Daily Tracker")
-root.geometry("700x520")
+root.title("📘 Daily Schedule Tracker (with Remarks)")
+root.geometry("900x700")
 root.config(bg="#f5f6fa")
 
 # Header
 header = tk.Label(
-    root, text="Daily Study Tracker", font=("Helvetica", 16, "bold"),
+    root, text="Daily Schedule Tracker (with Remarks)", font=("Helvetica", 16, "bold"),
     bg="#2f3640", fg="white", pady=10
 )
 header.pack(fill="x")
 
-# Frame for inputs
-frame = tk.Frame(root, bg="#f5f6fa")
-frame.pack(pady=15)
+# Table for schedule
+schedule_frame = tk.Frame(root, bg="#f5f6fa")
+schedule_frame.pack(pady=10, fill="both", expand=True)
 
-# Date
-tk.Label(frame, text="📅 Date:", font=("Arial", 10, "bold"), bg="#f5f6fa").grid(row=0, column=0, padx=10, pady=5, sticky="e")
-date_entry = tk.Entry(frame, width=25, font=("Arial", 10))
-date_entry.grid(row=0, column=1, pady=5)
+columns = ("Scheduled Time", "Activity", "Login", "Logout")
+schedule_table = ttk.Treeview(schedule_frame, columns=columns, show="headings", height=14)
+schedule_table.pack(side="left", fill="both", expand=True)
 
-# Day
-tk.Label(frame, text="🗓️ Day:", font=("Arial", 10, "bold"), bg="#f5f6fa").grid(row=1, column=0, padx=10, pady=5, sticky="e")
-day_entry = tk.Entry(frame, width=25, font=("Arial", 10))
-day_entry.grid(row=1, column=1, pady=5)
+for col in columns:
+    schedule_table.heading(col, text=col, anchor="center")
+    schedule_table.column(col, anchor="center", width=180)
 
-# Time
-tk.Label(frame, text="⏰ Current Time:", font=("Arial", 10, "bold"), bg="#f5f6fa").grid(row=2, column=0, padx=10, pady=5, sticky="e")
-time_entry = tk.Entry(frame, width=25, font=("Arial", 10))
-time_entry.grid(row=2, column=1, pady=5)
+# Scrollbar
+scrollbar = ttk.Scrollbar(schedule_frame, orient="vertical", command=schedule_table.yview)
+schedule_table.configure(yscrollcommand=scrollbar.set)
+scrollbar.pack(side="right", fill="y")
 
-# Topic
-tk.Label(frame, text="🧠 Topics:", font=("Arial", 10, "bold"), bg="#f5f6fa").grid(row=3, column=0, padx=10, pady=5, sticky="e")
-topic_entry = tk.Entry(frame, width=25, font=("Arial", 10))
-topic_entry.grid(row=3, column=1, pady=5)
+# Populate schedule
+for time_slot, activity in SCHEDULE:
+    schedule_table.insert("", "end", values=(time_slot, activity, "", ""))
 
-# Buttons frame
+# Button Frame
 btn_frame = tk.Frame(root, bg="#f5f6fa")
 btn_frame.pack(pady=10)
 
-login_button = tk.Button(
-    btn_frame, text="Login", command=lambda: save_data("Login"),
-    bg="#44bd32", fg="white", font=("Arial", 10, "bold"),
-    width=12, relief="ridge", cursor="hand2"
-)
-login_button.grid(row=0, column=0, padx=10)
+for i, (sched_time, activity) in enumerate(SCHEDULE):
+    lbl = tk.Label(btn_frame, text=f"{sched_time} – {activity}", bg="#f5f6fa", anchor="w", width=55)
+    lbl.grid(row=i, column=0, padx=5, pady=2, sticky="w")
 
-logout_button = tk.Button(
-    btn_frame, text="Logout", command=lambda: save_data("Logout"),
-    bg="#e84118", fg="white", font=("Arial", 10, "bold"),
-    width=12, relief="ridge", cursor="hand2"
-)
-logout_button.grid(row=0, column=1, padx=10)
+    login_btn = tk.Button(
+        btn_frame, text="Login", width=10, bg="#44bd32", fg="white",
+        command=lambda a=activity, t=sched_time: record_action(a, t, "Login")
+    )
+    login_btn.grid(row=i, column=1, padx=5, pady=2)
 
-refresh_button = tk.Button(
-    btn_frame, text="🔄 Refresh", command=load_data,
-    bg="#487eb0", fg="white", font=("Arial", 10, "bold"),
-    width=12, relief="ridge", cursor="hand2"
-)
-refresh_button.grid(row=0, column=2, padx=10)
+    logout_btn = tk.Button(
+        btn_frame, text="Logout", width=10, bg="#e84118", fg="white",
+        command=lambda a=activity, t=sched_time: record_action(a, t, "Logout")
+    )
+    logout_btn.grid(row=i, column=2, padx=5, pady=2)
 
-# Table Frame
-table_frame = tk.Frame(root, bg="#f5f6fa")
-table_frame.pack(pady=10, fill="both", expand=True)
+# Separator
+ttk.Separator(root, orient="horizontal").pack(fill="x", pady=10)
 
-columns = ("Date", "Day", "Login Time", "Logout Time", "Topics")
-tree = ttk.Treeview(table_frame, columns=columns, show="headings", height=10)
+# Data table (with Remarks)
+data_frame = tk.Frame(root, bg="#f5f6fa")
+data_frame.pack(pady=10, fill="both", expand=True)
+
+data_columns = ("Date", "Day", "Scheduled Time", "Activity", "Login Time", "Logout Time", "Remarks")
+tree = ttk.Treeview(data_frame, columns=data_columns, show="headings", height=8)
 tree.pack(side="left", fill="both", expand=True)
 
-# Scrollbar
-scrollbar = ttk.Scrollbar(table_frame, orient="vertical", command=tree.yview)
-tree.configure(yscrollcommand=scrollbar.set)
-scrollbar.pack(side="right", fill="y")
-
-# Set column headings
-for col in columns:
+for col in data_columns:
     tree.heading(col, text=col)
-    tree.column(col, width=130, anchor="center")
+    tree.column(col, width=120, anchor="center")
+
+scrollbar_data = ttk.Scrollbar(data_frame, orient="vertical", command=tree.yview)
+tree.configure(yscrollcommand=scrollbar_data.set)
+scrollbar_data.pack(side="right", fill="y")
+
+# Remarks Button
+remarks_btn = tk.Button(
+    root, text="📝 Add Remark to Selected Activity", bg="#273c75", fg="white",
+    font=("Arial", 10, "bold"), command=add_remarks
+)
+remarks_btn.pack(pady=10)
 
 # Footer
 footer = tk.Label(
-    root, text="Data saved in daily_tracking.csv", bg="#dcdde1",
+    root, text="Data saved in daily_schedule_tracking.csv", bg="#dcdde1",
     font=("Arial", 9), fg="#2f3640", pady=5
 )
 footer.pack(side="bottom", fill="x")
 
-# ---------------- RUN APP ----------------
+# Initialize
 initialize_csv()
 load_data()
-update_datetime_fields()
 root.mainloop()
