@@ -8,19 +8,19 @@ FILE_NAME = "daily_schedule_tracking.csv"
 
 # ------------------ Schedule Data ------------------
 SCHEDULE = [
-    ("5:00 AM", "Music / Devotional Songs Begin"),
-    ("5:30 AM – 6:00 AM", "Omkaram & Suprabhatam"),
-    ("6:00 AM – 6:20 AM", "Fitness Session"),
-    ("7:10 AM – 7:30 AM", "Breakfast Counter Open"),
+    ("5:00 AM", "Wake up -> Music / Devotional Songs Begin"),
+    ("5:30 AM - 6:00 AM", "Omkaram & Suprabhatam"),
+    ("6:00 AM - 6:20 AM", "Fitness Session"),
+    ("7:10 AM - 7:30 AM", "Breakfast Counter Open"),
     ("9:00 AM", "College Begins (with Prayer)"),
     ("3:45 PM", "College Ends"),
     ("4:00 PM", "Return to Hostel"),
-    ("4:00 PM – 4:30 PM", "Relaxation & Evening Snacks"),
+    ("4:00 PM - 4:30 PM", "Relaxation & Evening Snacks"),
     ("5:00 PM", "Start to Kulwant Hall"),
     ("5:15 PM", "Bhajans at Sai Kulwant Hall"),
-    ("7:10 PM – 7:30 PM", "Dinner Counter Open"),
-    ("8:00 PM – 9:45 PM", "Study Hours"),
-    ("10:20 PM – 10:30 PM", "Night Prayer & Swami’s Discourse Clip"),
+    ("7:10 PM - 7:30 PM", "Dinner Counter Open"),
+    ("8:00 PM - 9:45 PM", "Study Hours"),
+    ("10:20 PM - 10:30 PM", "Night Prayer & Swami’s Discourse Clip"),
 ]
 
 # ------------------ Functions ------------------
